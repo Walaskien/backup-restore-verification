@@ -111,6 +111,7 @@ Run on macOS with Colima (Docker Engine 29.5.2, docker-compose 1.29.2), Postgres
 | `promtool check config`, `check rules`, `test rules` | 7 rules, all unit test cases pass; raising the `BackupStale` threshold in a copy makes the tests fail, so they do test something |
 | `actionlint` 1.7.7 on `.github/workflows/ci.yml` | no findings |
 | `make e2e` from an empty state (no volumes, no `data/`) | 32 checks passed, about 1 minute 45 seconds |
+| GitHub Actions, first run on `main` ([run 42846630768](https://github.com/Walaskien/backup-restore-verification/actions/runs/42846630768)) | green: lint, unit, promtool and e2e |
 
 What `make e2e` covers:
 
@@ -122,7 +123,7 @@ What `make e2e` covers:
 
 Separately, by hand: a missing second location gives exit 13 from `backup.sh` and `backup_secondary_copy_success 0`; a missing second copy gives exit 14 from the verification.
 
-The workflow runs the same commands on a GitHub-hosted runner, where the shell scripts meet GNU userland instead of macOS. That part is not something I ran locally.
+The CI e2e job ran on `ubuntu-latest`, which on that run was the `ubuntu-24.04` image 20261101.360.1, with the `docker compose` (v2) plugin that comes with it. It ran the same two scripts as `make e2e`: 32 checks, none failed, 54 seconds for the whole job including bringing the stack up and down. Nothing had to be fixed after the first push. Before that run I had only tried the scripts on macOS, so this was the first time they met GNU userland.
 
 The demo database is about 42,000 rows and a 400 KB dump, so the timings above say nothing about the restore time of a real database.
 
@@ -136,7 +137,7 @@ The demo database is about 42,000 rows and a 400 KB dump, so the timings above s
 - No Alertmanager or notification channel in the compose file, only Prometheus rules. Thresholds fit a daily schedule and have to be adjusted for another one.
 - Two verifications running at the same moment are not supported.
 - Passwords in the compose file are demo values, the container is bound to localhost.
-- The Linux side is covered by the CI workflow, not by my local runs.
+- My own runs were on macOS only. Linux is covered by the CI run above and by whatever the runner image looks like in the future.
 
 ## Layout
 
