@@ -137,7 +137,7 @@ The demo database is about 42,000 rows and a 400 KB dump, so the timings above s
 - No Alertmanager or notification channel in the compose file, only Prometheus rules. Thresholds fit a daily schedule and have to be adjusted for another one.
 - Two verifications running at the same moment are not supported.
 - Passwords in the compose file are demo values, the container is bound to localhost.
-- My own runs were on macOS only. Linux is covered by the CI run above and by whatever the runner image looks like in the future.
+- My own runs were on macOS only. Linux is covered by the CI run above.
 
 ## Layout
 
