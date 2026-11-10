@@ -1,0 +1,178 @@
+rule_files:
+  - ../rules/backup.yml
+
+evaluation_interval: 5m
+
+tests:
+  # Backup finished at t=0 and nothing happened since. 26h limit plus 10m "for".
+  - name: stale backup
+    interval: 5m
+    input_series:
+      - series: 'backup_last_success_timestamp_seconds{job="node",instance="db1:9100"}'
+        values: '0x400'
+    alert_rule_test:
+      - eval_time: 25h
+        alertname: BackupStale
+        exp_alerts: []
+      - eval_time: 27h
+        alertname: BackupStale
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: node
+              instance: db1:9100
+            exp_annotations:
+              summary: "Last successful backup on db1:9100 was 1d 3h 0m 0s ago"
+              runbook: docs/runbook.md#backupstale
+
+  - name: stale backup clears after a new backup
+    interval: 5m
+    input_series:
+      - series: 'backup_last_success_timestamp_seconds{job="node",instance="db1:9100"}'
+        values: '0x330 99000x100'
+    alert_rule_test:
+      - eval_time: 30h
+        alertname: BackupStale
+        exp_alerts: []
+
+  - name: last run failed
+    interval: 5m
+    input_series:
+      - series: 'backup_last_run_success{job="node",instance="db1:9100"}'
+        values: '1 1 0 0 1'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: BackupRunFailed
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: BackupRunFailed
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: node
+              instance: db1:9100
+            exp_annotations:
+              summary: "The last backup run on db1:9100 failed"
+              runbook: docs/runbook.md#backuprunfailed
+      - eval_time: 20m
+        alertname: BackupRunFailed
+        exp_alerts: []
+
+  - name: second copy failed
+    interval: 5m
+    input_series:
+      - series: 'backup_secondary_copy_success{job="node",instance="db1:9100"}'
+        values: '1 0 0'
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: BackupSecondaryCopyFailed
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: BackupSecondaryCopyFailed
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: node
+              instance: db1:9100
+            exp_annotations:
+              summary: "The newest backup on db1:9100 exists only in the primary directory"
+              runbook: docs/runbook.md#backupsecondarycopyfailed
+
+  # A week at 1000, then a dump that is 30% of that. 800 is a normal dip.
+  - name: size dropped sharply
+    interval: 5m
+    input_series:
+      - series: 'backup_size_bytes{job="node",instance="db1:9100"}'
+        values: '1000x2016 300x20'
+    alert_rule_test:
+      - eval_time: 7d1h
+        alertname: BackupSizeDropped
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: node
+              instance: db1:9100
+            exp_annotations:
+              summary: "Newest backup on db1:9100 is less than half of its 7 day average size"
+              runbook: docs/runbook.md#backupsizedropped
+
+  - name: size dipped but not alarming
+    interval: 5m
+    input_series:
+      - series: 'backup_size_bytes{job="node",instance="db1:9100"}'
+        values: '1000x2016 800x20'
+    alert_rule_test:
+      - eval_time: 7d1h
+        alertname: BackupSizeDropped
+        exp_alerts: []
+
+  - name: restore verification failed, then fixed
+    interval: 5m
+    input_series:
+      - series: 'restore_verification_success{job="node",instance="db1:9100"}'
+        values: '1 1 0 0 1'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: RestoreVerificationFailed
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: RestoreVerificationFailed
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: node
+              instance: db1:9100
+            exp_annotations:
+              summary: "The newest backup on db1:9100 could not be restored or its data did not match"
+              runbook: docs/runbook.md#restoreverificationfailed
+      - eval_time: 20m
+        alertname: RestoreVerificationFailed
+        exp_alerts: []
+
+  - name: restore verification not succeeding for two days
+    interval: 5m
+    input_series:
+      - series: 'restore_verification_last_success_timestamp_seconds{job="node",instance="db1:9100"}'
+        values: '0x700'
+    alert_rule_test:
+      - eval_time: 49h
+        alertname: RestoreVerificationStale
+        exp_alerts: []
+      - eval_time: 51h
+        alertname: RestoreVerificationStale
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: node
+              instance: db1:9100
+            exp_annotations:
+              summary: "No successful restore verification on db1:9100 for 2d 3h 0m 0s"
+              runbook: docs/runbook.md#restoreverificationstale
+
+  - name: metrics never showed up
+    interval: 5m
+    input_series: []
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: BackupMetricsAbsent
+        exp_alerts: []
+      - eval_time: 45m
+        alertname: BackupMetricsAbsent
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "Backup or restore verification metrics have disappeared"
+              runbook: docs/runbook.md#backupmetricsabsent
+
+  - name: metrics present
+    interval: 5m
+    input_series:
+      - series: 'backup_last_success_timestamp_seconds{job="node",instance="db1:9100"}'
+        values: '0x30'
+      - series: 'restore_verification_success{job="node",instance="db1:9100"}'
+        values: '1x30'
+    alert_rule_test:
+      - eval_time: 2h
+        alertname: BackupMetricsAbsent
+        exp_alerts: []

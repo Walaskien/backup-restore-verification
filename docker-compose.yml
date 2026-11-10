@@ -18,5 +18,31 @@ services:
       timeout: 3s
       retries: 20
 
+  # Reads only the *.prom files that backup.sh and verify-restore.sh write
+  # on the host. Everything else it can collect is switched off.
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: brv-node-exporter
+    command:
+      - --collector.disable-defaults
+      - --collector.textfile
+      - --collector.textfile.directory=/textfile
+    volumes:
+      - ./data/metrics:/textfile:ro
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: brv-prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=2d
+    ports:
+      - "127.0.0.1:${PROM_HOST_PORT:-19690}:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+    depends_on:
+      - node-exporter
+
 volumes:
   pgdata:

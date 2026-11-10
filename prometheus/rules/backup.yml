@@ -1,0 +1,65 @@
+groups:
+  - name: backup
+    rules:
+      - alert: BackupStale
+        expr: time() - backup_last_success_timestamp_seconds > 26 * 3600
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Last successful backup on {{ $labels.instance }} was {{ $value | humanizeDuration }} ago"
+          runbook: docs/runbook.md#backupstale
+
+      # No "for" on the two last-run alerts below and on RestoreVerificationFailed:
+      # these gauges only change when a run finishes, so waiting adds nothing.
+      - alert: BackupRunFailed
+        expr: backup_last_run_success == 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "The last backup run on {{ $labels.instance }} failed"
+          runbook: docs/runbook.md#backuprunfailed
+
+      - alert: BackupSecondaryCopyFailed
+        expr: backup_secondary_copy_success == 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "The newest backup on {{ $labels.instance }} exists only in the primary directory"
+          runbook: docs/runbook.md#backupsecondarycopyfailed
+
+      - alert: BackupSizeDropped
+        expr: backup_size_bytes < 0.5 * avg_over_time(backup_size_bytes[7d])
+        labels:
+          severity: warning
+        annotations:
+          summary: "Newest backup on {{ $labels.instance }} is less than half of its 7 day average size"
+          runbook: docs/runbook.md#backupsizedropped
+
+      - alert: RestoreVerificationFailed
+        expr: restore_verification_success == 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "The newest backup on {{ $labels.instance }} could not be restored or its data did not match"
+          runbook: docs/runbook.md#restoreverificationfailed
+
+      - alert: RestoreVerificationStale
+        expr: time() - restore_verification_last_success_timestamp_seconds > 50 * 3600
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No successful restore verification on {{ $labels.instance }} for {{ $value | humanizeDuration }}"
+          runbook: docs/runbook.md#restoreverificationstale
+
+      # If node_exporter or the textfile directory goes away, every alert above
+      # simply stops evaluating. This one makes that visible.
+      - alert: BackupMetricsAbsent
+        expr: absent(backup_last_success_timestamp_seconds) or absent(restore_verification_success)
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backup or restore verification metrics have disappeared"
+          runbook: docs/runbook.md#backupmetricsabsent
