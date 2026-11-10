@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: brv-postgres
+    environment:
+      POSTGRES_DB: appdb
+      POSTGRES_USER: app
+      # demo only, the container is bound to localhost
+      POSTGRES_PASSWORD: demo-only-change-me
+    ports:
+      - "127.0.0.1:${PG_HOST_PORT:-15632}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U app -d appdb"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:
