@@ -40,7 +40,6 @@ def read_prom(path):
 
 
 def make_backup(directory, stamp, age_days=0, db="appdb"):
-    """Create dump + sidecars the way backup.sh names them."""
     directory.mkdir(parents=True, exist_ok=True)
     base = directory / f"{db}_{stamp}"
     dump = Path(f"{base}.dump")
