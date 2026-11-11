@@ -2,13 +2,11 @@
 
 [![ci](https://github.com/Walaskien/backup-restore-verification/actions/workflows/ci.yml/badge.svg)](https://github.com/Walaskien/backup-restore-verification/actions/workflows/ci.yml)
 
-A backup nobody has restored is not a backup yet. The cron job says "done", the dump file has a plausible size, and the first time anyone learns it is truncated or empty is the day the database is gone.
+A cron job that says "done" and a dump file with a plausible size do not show that the backup can be restored. This repo is a small Postgres setup that takes a backup, then restores the newest one into a throwaway container and checks that the data came back. The result goes to Prometheus, so a backup that cannot be restored raises an alert.
 
-This repo is a small Postgres setup that closes that gap: it takes a backup on a schedule, and then restores the newest one into a throwaway container and checks that the data came back. The result goes to Prometheus, so a backup that cannot be restored raises an alert instead of sitting there looking fine.
+It consists of Bash scripts, Docker Compose, Prometheus rules with `promtool` tests, a runbook, and a CI workflow that runs the whole cycle, including deliberately broken backups.
 
-Bash scripts, Docker, Prometheus rules with `promtool` tests, a runbook, and a CI workflow that runs the whole cycle, including deliberately broken backups.
-
-It is a reference implementation built around a demo database. Read the Limitations before pointing it at anything you care about.
+It is built around a demo database. Read the Limitations before pointing it at anything you care about.
 
 ## How it works
 
@@ -111,7 +109,7 @@ Run on macOS with Colima (Docker Engine 29.5.2, docker-compose 1.29.2), Postgres
 | `promtool check config`, `check rules`, `test rules` | 7 rules, all unit test cases pass; raising the `BackupStale` threshold in a copy makes the tests fail, so they do test something |
 | `actionlint` 1.7.7 on `.github/workflows/ci.yml` | no findings |
 | `make e2e` from an empty state (no volumes, no `data/`) | 32 checks passed, about 1 minute 45 seconds |
-| GitHub Actions, first run on `main` ([run 42846630768](https://github.com/Walaskien/backup-restore-verification/actions/runs/42846630768)) | green: lint, unit, promtool and e2e |
+| GitHub Actions (see the badge) | `lint`, `unit`, `promtool` and `e2e` jobs |
 
 What `make e2e` covers:
 
@@ -123,7 +121,7 @@ What `make e2e` covers:
 
 Separately, by hand: a missing second location gives exit 13 from `backup.sh` and `backup_secondary_copy_success 0`; a missing second copy gives exit 14 from the verification.
 
-The CI e2e job ran on `ubuntu-latest`, which on that run was the `ubuntu-24.04` image 20261101.360.1, with the `docker compose` (v2) plugin that comes with it. It ran the same two scripts as `make e2e`: 32 checks, none failed, 54 seconds for the whole job including bringing the stack up and down. Nothing had to be fixed after the first push. Before that run I had only tried the scripts on macOS, so this was the first time they met GNU userland.
+The CI e2e job runs the same two scripts as `make e2e` on `ubuntu-latest` with the `docker compose` v2 plugin; it took about a minute on the first run. That run was also the first time the scripts met GNU userland, since they had only been tried on macOS before.
 
 The demo database is about 42,000 rows and a 400 KB dump, so the timings above say nothing about the restore time of a real database.
 
