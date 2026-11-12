@@ -1,7 +1,7 @@
 # COMPOSE can be pointed at docker-compose v1 if v2 is not installed.
 COMPOSE ?= docker compose
 SHELLCHECK ?= shellcheck
-PROMTOOL ?= docker run --rm -v "$(CURDIR)/prometheus:/p:ro" --entrypoint promtool prom/prometheus:v2.55.1
+PROMTOOL ?= docker run --rm -v "$(CURDIR)/prometheus:/etc/prometheus:ro" --entrypoint promtool prom/prometheus:v2.55.1
 export COMPOSE_PROJECT_NAME := brv
 
 .PHONY: up down clean backup verify orders lint test rules e2e
@@ -37,8 +37,9 @@ test:
 	pytest -q
 
 rules:
-	$(PROMTOOL) check rules /p/rules/backup.yml
-	$(PROMTOOL) test rules /p/tests/backup_test.yml
+	$(PROMTOOL) check config /etc/prometheus/prometheus.yml
+	$(PROMTOOL) check rules /etc/prometheus/rules/backup.yml
+	$(PROMTOOL) test rules /etc/prometheus/tests/backup_test.yml
 
 e2e: up
 	tests/e2e_happy_path.sh
