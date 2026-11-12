@@ -221,3 +221,20 @@ def test_backup_with_unknown_container_fails_and_keeps_old_success(tmp_path):
     assert m["backup_last_run_success"] == 0
     assert m["backup_last_success_timestamp_seconds"] == 1700000000
     assert m["backup_size_bytes"] == 999
+
+
+def test_control_manifest_rejects_bad_table_before_docker(tmp_path):
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    called = tmp_path / "docker.called"
+    docker = fake_bin / "docker"
+    docker.write_text(f"#!/bin/sh\ntouch {called}\n")
+    docker.chmod(0o755)
+    env = {
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+        "VERIFY_TABLES": "public.orders; drop table x",
+    }
+    r = run_lib("control_manifest c u d", env=env)
+    assert r.returncode == 1
+    assert "bad table name" in r.stderr
+    assert not called.exists()
